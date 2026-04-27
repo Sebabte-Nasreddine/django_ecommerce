@@ -1,0 +1,152 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Cormorant+Garamond:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand: #1A1A1A;
+    --brand-dark: #000000;
+    --accent: #C5A059;
+  }
+
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-surface text-brand-500 font-sans tracking-tight;
+    min-height: 100vh;
+  }
+
+  h1, h2, h3, h4 {
+    @apply font-serif tracking-extra-wide uppercase;
+  }
+
+  .font-serif {
+    font-family: 'Playfair Display', serif;
+  }
+
+  ::selection {
+    @apply bg-brand-500 text-white;
+  }
+
+  :focus-visible {
+    @apply outline-1 outline-brand-500 outline-offset-4;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { @apply bg-surface; }
+  ::-webkit-scrollbar-thumb { @apply bg-brand-500/20 hover:bg-brand-500; }
+}
+
+/* ── Dark mode global overrides ───────────────────────────────── */
+.dark body {
+  background-color: #0d0d0d;
+  color: #e8e8e8;
+}
+.dark ::-webkit-scrollbar-track { background-color: #111; }
+.dark ::-webkit-scrollbar-thumb { background-color: rgba(255,255,255,0.12); }
+
+@layer components {
+
+  /* ── Buttons ── */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 bg-brand-500 text-white font-medium uppercase tracking-widest text-xs transition-all duration-300 hover:bg-black hover:tracking-[0.2em] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-8 py-3.5 border border-brand-500 text-brand-500 font-medium uppercase tracking-widest text-xs bg-transparent transition-all duration-300 hover:bg-brand-500 hover:text-white active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 text-brand-500/70 font-medium rounded-sm transition-all duration-300 hover:text-brand-500 hover:bg-black/5;
+  }
+
+  /* ── Cards ── */
+  .card {
+    @apply bg-white border border-black/[0.03] rounded-sm transition-all duration-500 hover:border-black/[0.08] hover:shadow-2xl hover:shadow-black/[0.02];
+  }
+
+  .card-glass {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20 rounded-sm;
+  }
+
+  /* ── Inputs ── */
+  .input {
+    @apply w-full px-4 py-3.5 rounded-sm bg-white border border-black/10 text-brand-500 placeholder:text-neutral-300 transition-all duration-300 focus:outline-none focus:border-brand-500 focus:ring-0;
+  }
+
+  .label {
+    @apply block text-[10px] uppercase tracking-luxury font-semibold text-brand-500/50 mb-2;
+  }
+
+  /* ── Badges ── */
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest;
+  }
+
+  .badge-brand  { @apply badge bg-brand-500 text-white; }
+  .badge-green  { @apply badge bg-green-50 text-green-700 border border-green-100; }
+  .badge-red    { @apply badge bg-red-50 text-red-700 border border-red-100; }
+  .badge-yellow { @apply badge bg-yellow-50 text-yellow-700 border border-yellow-100; }
+
+  /* ── Section ── */
+  .section { @apply py-20 lg:py-32; }
+
+  .container-xl { @apply max-w-7xl mx-auto px-6 lg:px-12; }
+
+  /* ── Link ── */
+  .link {
+    @apply text-brand-500 underline decoration-black/10 underline-offset-4 hover:decoration-black transition-all;
+  }
+
+  /* ── Divider ── */
+  .divider { @apply border-t border-black/5; }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-clip-text text-transparent;
+    background-image: linear-gradient(135deg, #e49540 0%, #d4762a 50%, #b85e1e 100%);
+  }
+
+  .glow-brand { box-shadow: 0 0 30px rgba(212, 118, 42, 0.25); }
+
+  .animate-in { animation: fadeIn 0.4s ease-out, slideUp 0.4s ease-out; }
+
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+  .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+  @keyframes sweep {
+    0%   { left: -33%; }
+    100% { left: 133%; }
+  }
+  @keyframes scrollLine {
+    0%, 100% { transform: translateY(-100%); }
+    50%       { transform: translateY(100%);  }
+  }
+  @keyframes qtyPop {
+    0%   { transform: scale(1.35); opacity: .5; }
+    100% { transform: scale(1);    opacity: 1;  }
+  }
+  @keyframes btnSweep {
+    0%   { left: -60%; }
+    60%  { left: 130%; }
+    100% { left: 130%; }
+  }
+  @keyframes ticker {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+}
