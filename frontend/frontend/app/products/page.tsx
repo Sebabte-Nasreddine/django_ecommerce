@@ -98,9 +98,10 @@ function ProductsContent() {
         return () => clearTimeout(debRef.current)
     }, [search])
 
-    /* ── single fetch (products + categories in parallel) ── */
+    /* ── fetch on every mount (handles back-navigation from checkout) ── */
     useEffect(() => {
         setLoading(true)
+        setFetched(false)
         Promise.all([productApi.list({}), categoryApi.list()])
             .then(([pd, cats]) => {
                 const list = Array.isArray(pd) ? pd : (pd?.content ?? pd?.data ?? [])

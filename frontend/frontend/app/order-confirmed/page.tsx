@@ -1,9 +1,18 @@
 'use client'
-import { Suspense } from 'react'
+import { Suspense, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle, ShoppingBag } from 'lucide-react'
 
 function Content() {
+    const router = useRouter()
+
+    useEffect(() => {
+        // Vide le Router Cache de Next.js pour que les pages produit
+        // re-fetchen le stock frais depuis le serveur après une commande.
+        router.refresh()
+    }, [])
+
     return (
         <div className="min-h-screen flex items-center justify-center px-6">
             <div className="max-w-md w-full text-center space-y-8">
