@@ -54,6 +54,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    image: sebabte/sefa-backend:latest
     container_name: sefa_backend
     restart: unless-stopped
     env_file: .env
@@ -96,6 +97,7 @@ services:
       dockerfile: Dockerfile
       args:
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
+    image: sebabte/sefa-frontend:latest
     container_name: sefa_frontend
     restart: unless-stopped
     environment:
