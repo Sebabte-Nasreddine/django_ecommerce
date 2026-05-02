@@ -22,6 +22,11 @@ const nextConfig = {
 
   experimental: {
     optimizePackageImports: ['lucide-react'],
+    // Disable Router Cache for dynamic routes (product pages, etc.)
+    // so stock values are always fetched fresh from the API.
+    staleTimes: {
+      dynamic: 0,
+    },
   },
 
   async headers() {
