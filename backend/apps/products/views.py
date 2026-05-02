@@ -26,10 +26,20 @@ logger = logging.getLogger(__name__)
 PRODUCT_CACHE_TTL = 60 * 5  # 5 minutes
 
 
-def invalidate_product_cache(product_id=None):
+def invalidate_product_cache(product_id=None, slug=None):
     cache.delete('products_list')
+    cache.delete('featured_categories')
     if product_id:
         cache.delete(f'product_{product_id}')
+    if slug:
+        cache.delete(f'product_slug_{slug}')
+    elif product_id:
+        try:
+            s = Product.objects.filter(pk=product_id).values_list('slug', flat=True).first()
+            if s:
+                cache.delete(f'product_slug_{s}')
+        except Exception:
+            pass
 
 
 # ── Products ──────────────────────────────────────────────────────────────────
@@ -104,13 +114,13 @@ def product_detail(request, pk):
         serializer = ProductSerializer(product, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        invalidate_product_cache(pk)
+        invalidate_product_cache(pk, product.slug)
         return Response(ProductSerializer(product).data)
 
     # DELETE
     product.is_active = False
     product.save(update_fields=['is_active'])
-    invalidate_product_cache(pk)
+    invalidate_product_cache(pk, product.slug)
     return Response(status=status.HTTP_204_NO_CONTENT)
 
 
@@ -182,7 +192,7 @@ def product_size_stock(request, pk):
     serializer = ProductStockUpdateSerializer(data=request.data, context={'product': product})
     serializer.is_valid(raise_exception=True)
     ps = serializer.save()
-    invalidate_product_cache(pk)
+    invalidate_product_cache(pk, product.slug)
     return Response(ProductSizeSerializer(ps).data)
 
 
@@ -201,7 +211,7 @@ def product_size_stock_by_id(request, pk, size_id):
     except (ValueError, TypeError):
         return Response({'message': 'stockQuantity must be an integer.'}, status=status.HTTP_400_BAD_REQUEST)
     ps.save(update_fields=['stock_quantity'])
-    invalidate_product_cache(pk)
+    invalidate_product_cache(pk, product.slug)
     return Response(ProductSizeSerializer(ps).data)
 
 

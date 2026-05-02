@@ -190,7 +190,7 @@ def checkout(request):
                     )
                 ps.stock_quantity -= item.quantity
                 ps.save(update_fields=['stock_quantity'])
-                invalidate_product_cache(item.product.id)
+                invalidate_product_cache(item.product.id, item.product.slug)
             except ProductSize.DoesNotExist:
                 return Response(
                     {'message': f'Taille introuvable pour {item.product.name}.'},
@@ -338,7 +338,7 @@ def guest_checkout(request):
                     )
                 ps.stock_quantity -= item['quantity']
                 ps.save(update_fields=['stock_quantity'])
-                invalidate_product_cache(item['productId'])
+                invalidate_product_cache(item['productId'], product.slug)
             except (Product.DoesNotExist, Size.DoesNotExist, ProductSize.DoesNotExist) as e:
                 return Response(
                     {'message': f'Taille introuvable pour {item["productName"]}.'},
