@@ -39,7 +39,12 @@
       "Bash(scp *)",
       "Bash(dig sefa.ma A +short)",
       "Bash(dig www.sefa.ma A +short)",
-      "Bash(docker buildx *)"
+      "Bash(docker buildx *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git config *)",
+      "Bash(wait)",
+      "Bash(git push *)"
     ]
   }
 }

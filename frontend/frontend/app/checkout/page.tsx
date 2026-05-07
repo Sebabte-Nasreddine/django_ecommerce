@@ -6,7 +6,7 @@ import { PageBanner } from '@/components/PageBanner'
 import { MapPin, Truck, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatEuro } from '@/lib/formatPrice'
-import { api } from '@/lib/api'
+import { api, productApi } from '@/lib/api'
 
 const inputClass = "w-full bg-transparent border-0 border-b border-black/10 dark:border-white/10 focus:border-brand-500 dark:focus:border-brand-500 focus:ring-0 text-sm py-3 transition-colors placeholder:text-black/15 dark:placeholder:text-white/20 outline-none text-black dark:text-white"
 const labelClass = "text-[9px] uppercase tracking-[0.25em] text-black/40 dark:text-white/40"
@@ -48,6 +48,18 @@ export default function CheckoutPage() {
         setSubmitting(true)
         localStorage.setItem(GUEST_KEY, JSON.stringify({ fullName: form.fullName, phone: form.phone, address: form.address, city: form.city }))
         try {
+            // Validate current stock before submitting
+            const stockCheck = await api.post('/products/check-stock', items.map(i => ({
+                productId: i.productId,
+                sizeName: i.sizeName || '',
+                quantity: i.quantity,
+            }))).then(r => r.data)
+            if (!stockCheck.ok) {
+                stockCheck.errors.forEach((msg: string) => toast.error(msg))
+                setSubmitting(false)
+                return
+            }
+
             const payload = {
                 guestName: form.fullName,
                 guestPhone: form.phone,

@@ -102,6 +102,12 @@ export const sizeApi = {
     delete: (id: number) => api.delete(`/sizes/${id}`),
 }
 
+// ── Cart stock validation ──────────────────────────────────────────────────────
+export const stockApi = {
+    checkCart: (items: { productId: number; sizeName: string; quantity: number }[]) =>
+        api.post('/products/check-stock', items).then(r => r.data),
+}
+
 // ── Product Size Stock ─────────────────────────────────────────────────────────
 export const productSizeApi = {
     getStock: (productId: number) => api.get(`/products/${productId}/sizes`).then(r => r.data),

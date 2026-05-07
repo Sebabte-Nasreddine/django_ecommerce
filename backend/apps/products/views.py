@@ -23,23 +23,15 @@ from .serializers import (
 
 logger = logging.getLogger(__name__)
 
-PRODUCT_CACHE_TTL = 60 * 5  # 5 minutes
+PRODUCT_CACHE_TTL = 60 * 5  # 5 minutes for list/homepage caches
 
 
 def invalidate_product_cache(product_id=None, slug=None):
+    # Clear list and homepage caches (product detail/slug has no cache — always live)
     cache.delete('products_list')
     cache.delete('featured_categories')
     if product_id:
         cache.delete(f'product_{product_id}')
-    if slug:
-        cache.delete(f'product_slug_{slug}')
-    elif product_id:
-        try:
-            s = Product.objects.filter(pk=product_id).values_list('slug', flat=True).first()
-            if s:
-                cache.delete(f'product_slug_{s}')
-        except Exception:
-            pass
 
 
 # ── Products ──────────────────────────────────────────────────────────────────
@@ -127,19 +119,13 @@ def product_detail(request, pk):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def product_by_slug(request, slug):
-    cache_key = f'product_slug_{slug}'
-    cached = cache.get(cache_key)
-    if cached is not None:
-        return Response(cached)
-
+    # No cache — stock must always be real-time on the product detail page
     product = get_object_or_404(
         Product.objects.select_related('category').prefetch_related('product_sizes__size'),
         slug=slug,
         is_active=True,
     )
-    data = ProductSerializer(product).data
-    cache.set(cache_key, data, PRODUCT_CACHE_TTL)
-    return Response(data)
+    return Response(ProductSerializer(product).data)
 
 
 # ── Related products ──────────────────────────────────────────────────────────
@@ -213,6 +199,40 @@ def product_size_stock_by_id(request, pk, size_id):
     ps.save(update_fields=['stock_quantity'])
     invalidate_product_cache(pk, product.slug)
     return Response(ProductSizeSerializer(ps).data)
+
+
+# ── Cart stock validation ─────────────────────────────────────────────────────
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def check_cart_stock(request):
+    """
+    POST /products/check-stock
+    Body: [{"productId": 1, "sizeName": "M", "quantity": 2}, ...]
+    Returns: {"ok": true} or {"ok": false, "errors": ["..."]}
+    """
+    items = request.data if isinstance(request.data, list) else []
+    errors = []
+    for item in items:
+        try:
+            product = Product.objects.get(pk=item['productId'], is_active=True)
+            size = Size.objects.get(name__iexact=item['sizeName'])
+            ps = ProductSize.objects.get(product=product, size=size)
+            qty = int(item.get('quantity', 1))
+            if ps.stock_quantity < qty:
+                if ps.stock_quantity == 0:
+                    errors.append(f'{product.name} ({size.name}) est épuisé.')
+                else:
+                    errors.append(
+                        f'{product.name} ({size.name}) : seulement {ps.stock_quantity} disponible(s).'
+                    )
+        except (Product.DoesNotExist, Size.DoesNotExist, ProductSize.DoesNotExist):
+            errors.append(f'Produit introuvable (id={item.get("productId")}).')
+        except Exception:
+            pass
+    if errors:
+        return Response({'ok': False, 'errors': errors}, status=status.HTTP_200_OK)
+    return Response({'ok': True})
 
 
 # ── Categories ────────────────────────────────────────────────────────────────
