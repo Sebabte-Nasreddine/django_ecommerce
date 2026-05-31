@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Category, Product, ProductSize, Size
+from .models import Category, Product, ProductSize, Review, Size
 
 
 class ProductSizeInline(admin.TabularInline):
@@ -43,3 +43,12 @@ class ProductSizeAdmin(admin.ModelAdmin):
     list_display = ['product', 'size', 'stock_quantity']
     list_filter = ['size']
     raw_id_fields = ['product']
+
+
+@admin.register(Review)
+class ReviewAdmin(admin.ModelAdmin):
+    list_display = ['product', 'user', 'rating', 'is_active', 'created_at']
+    list_filter = ['is_active', 'rating']
+    search_fields = ['product__name', 'user__email', 'comment']
+    list_editable = ['is_active']
+    raw_id_fields = ['product', 'user']

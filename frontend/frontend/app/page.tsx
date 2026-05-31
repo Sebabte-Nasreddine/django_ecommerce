@@ -1,5 +1,5 @@
 import Image from 'next/image'
-export const dynamic = 'force-dynamic'
+export const revalidate = 300
 import { HorizontalProductScroll } from '@/components/HorizontalProductScroll'
 import { PromoTicker } from '@/components/PromoTicker'
 import { ArrowRight } from 'lucide-react'
@@ -9,23 +9,27 @@ const API_URL = process.env.BACKEND_URL || 'http://backend:8080/api'
 
 async function getHomeData() {
     try {
-        const [featuredRes, featuredCatsRes] = await Promise.all([
-            fetch(`${API_URL}/products?featured=true`, { cache: 'no-store' }),
-            fetch(`${API_URL}/categories/featured`,    { cache: 'no-store' }),
+        const [catsRes, featuredRes, bannerRes] = await Promise.all([
+            fetch(`${API_URL}/categories/featured`, { next: { revalidate: 300 } }),
+            fetch(`${API_URL}/products?featured=true`, { next: { revalidate: 300 } }),
+            fetch(`${API_URL}/banner`, { next: { revalidate: 300 } }),
         ])
-        const featuredData = await featuredRes.json()
-        const featuredCats = await featuredCatsRes.json()
+        const cats = await catsRes.json()
+        const featuredRaw = await featuredRes.json()
+        const banner = await bannerRes.json()
+        const featured = Array.isArray(featuredRaw) ? featuredRaw : (featuredRaw?.content ?? [])
         return {
-            featured:   featuredData.content || featuredData || [],
-            categories: Array.isArray(featuredCats) ? featuredCats : [],
+            categories: Array.isArray(cats) ? cats : [],
+            featuredProducts: featured,
+            banner: banner as { desktopImage: string; mobileImage: string },
         }
     } catch {
-        return { featured: [], categories: [] }
+        return { categories: [], featuredProducts: [], banner: { desktopImage: '', mobileImage: '' } }
     }
 }
 
 export default async function HomePage() {
-    const { featured, categories } = await getHomeData()
+    const { categories, featuredProducts, banner } = await getHomeData()
 
     return (
         <>
@@ -70,21 +74,41 @@ export default async function HomePage() {
                 </div>
             </section>
 
-            {/* ── Nouvelles Collections — horizontal scroll ──────────────── */}
-            {featured.length > 0 && (
-                <section id="nouvelles-collections" className="py-6 lg:py-10 bg-white dark:bg-[#0d0d0d]">
+            {/* ── Promo Ticker ──────────────────────────────────────────── */}
+            <PromoTicker />
+
+            {/* ── Nouvelles collections ─────────────────────────────────── */}
+            {featuredProducts.length > 0 && (
+                <section className="py-6 lg:py-10 border-t border-black/[0.04] dark:border-white/[0.04] bg-white dark:bg-[#0d0d0d]">
                     <HorizontalProductScroll
-                        products={featured}
-                        label="Nouveautés"
-                        title="Nouvelles Collections"
-                        subtitle="Sélectionnées par nos soins"
-                        viewAllHref="/products"
+                        products={featuredProducts}
+                        title="Nouvelles collections"
+                        viewAllHref="/products?sort=createdAt,desc"
                     />
                 </section>
             )}
 
-            {/* ── Promo Ticker ──────────────────────────────────────────── */}
-            <PromoTicker />
+            {/* ── Bannière personnalisée ────────────────────────────────── */}
+            {(banner.desktopImage || banner.mobileImage) && (
+                <section className="w-full overflow-hidden border-t border-black/[0.04] dark:border-white/[0.04]">
+                    {banner.desktopImage && (
+                        <img
+                            src={banner.desktopImage}
+                            alt="Bannière"
+                            loading="lazy"
+                            className="hidden md:block w-full object-cover"
+                        />
+                    )}
+                    {(banner.mobileImage || banner.desktopImage) && (
+                        <img
+                            src={banner.mobileImage || banner.desktopImage}
+                            alt="Bannière"
+                            loading="lazy"
+                            className="block md:hidden w-full object-cover"
+                        />
+                    )}
+                </section>
+            )}
 
             {/* ── Catégories vedettes — horizontal scroll ────────────────── */}
             {categories.map((cat: any, ci: number) => (

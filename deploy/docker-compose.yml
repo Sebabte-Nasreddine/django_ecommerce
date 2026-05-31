@@ -1,18 +1,14 @@
-# ── Named volumes ─────────────────────────────────────────────────────────────
 volumes:
   postgres_data:
   redis_data:
   media_uploads:
 
-# ── Network ───────────────────────────────────────────────────────────────────
 networks:
   sefa_net:
     driver: bridge
 
-# ── Services ──────────────────────────────────────────────────────────────────
 services:
 
-  # ── PostgreSQL ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:16-alpine
     container_name: sefa_postgres
@@ -33,7 +29,6 @@ services:
       retries: 5
       start_period: 10s
 
-  # ── Redis ────────────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: sefa_redis
@@ -49,11 +44,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # ── Django Backend ───────────────────────────────────────────────────────────
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
     image: sebabte/sefa-backend:latest
     container_name: sefa_backend
     restart: unless-stopped
@@ -61,7 +52,7 @@ services:
     environment:
       DJANGO_SETTINGS_MODULE: config.settings.base
       SECRET_KEY: ${SECRET_KEY}
-      DEBUG: ${DEBUG}
+      DEBUG: "False"
       ALLOWED_HOSTS: ${ALLOWED_HOSTS}
       DB_NAME: ${DB_NAME}
       DB_USER: ${DB_USER}
@@ -75,7 +66,6 @@ services:
       DJANGO_SUPERUSER_PASSWORD: ${DJANGO_SUPERUSER_PASSWORD}
     volumes:
       - media_uploads:/app/media/uploads
-    # Port 8080 not exposed publicly — nginx is the only entry point
     networks:
       - sefa_net
     depends_on:
@@ -90,21 +80,14 @@ services:
       retries: 5
       start_period: 40s
 
-  # ── Next.js Frontend ─────────────────────────────────────────────────────────
   frontend:
-    build:
-      context: ./frontend/frontend
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
     image: sebabte/sefa-frontend:latest
     container_name: sefa_frontend
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-/api}
-      BACKEND_URL: ${BACKEND_URL:-http://backend:8080/api}
-    # Port 3000 not exposed publicly — nginx is the only entry point
+      NEXT_PUBLIC_API_URL: /api
+      BACKEND_URL: http://backend:8080/api
     networks:
       - sefa_net
     depends_on:
@@ -117,16 +100,14 @@ services:
       retries: 5
       start_period: 90s
 
-  # ── Nginx reverse proxy (public entry point) ──────────────────────────────────
   nginx:
     image: nginx:1.27-alpine
     container_name: sefa_nginx
     restart: unless-stopped
     ports:
-      - "8080:80"
-      # - "443:443"   # uncomment when SSL is configured
+      - "80:80"
     volumes:
-      - ./nginx/nginx.conf.local:/etc/nginx/nginx.conf:ro
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - media_uploads:/app/media/uploads:ro
     networks:
       - sefa_net

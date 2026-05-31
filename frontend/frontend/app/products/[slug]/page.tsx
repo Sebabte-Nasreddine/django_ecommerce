@@ -2,10 +2,11 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { productApi } from '@/lib/api'
+import { productApi, reviewApi } from '@/lib/api'
 import { useCartStore } from '@/store/cart'
+import { useAuthStore } from '@/store/auth'
 import { useTheme } from '@/components/ThemeProvider'
-import { ShoppingCart, Package, ArrowLeft, Check } from 'lucide-react'
+import { ShoppingCart, Package, ArrowLeft, Check, Star, StarHalf, User as UserIcon } from 'lucide-react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
 import { formatEuro } from '@/lib/formatPrice'
@@ -26,10 +27,15 @@ export default function ProductDetailPage() {
     const [adding,       setAdding]       = useState(false)
     const [added,        setAdded]        = useState(false)
     const [imgIdx,       setImgIdx]       = useState(0)
-    const [prevIdx,      setPrevIdx]      = useState<number | null>(null)
-    const [imgFading,    setImgFading]    = useState(false)
     const [selectedSize, setSelectedSize] = useState<any>(null)
     const [mounted,      setMounted]      = useState(false)
+
+    const [reviews,         setReviews]         = useState<any[]>([])
+    const [reviewRating,    setReviewRating]    = useState(0)
+    const [reviewComment,   setReviewComment]   = useState('')
+    const [submitting,      setSubmitting]      = useState(false)
+    const [hoverRating,     setHoverRating]     = useState(0)
+    const { user, isAuthenticated } = useAuthStore()
 
     const touchStartX = useRef(0)
     const touchStartY = useRef(0)
@@ -39,23 +45,23 @@ export default function ProductDetailPage() {
         setRelated([])
         setImgIdx(0)
         setSelectedSize(null)
+        setReviewRating(0)
+        setReviewComment('')
         productApi.getBySlug(slug)
-            .then(p => { setProduct(p); setTimeout(() => setMounted(true), 60) })
+            .then(p => {
+                setProduct(p)
+                reviewApi.list(p.id).then(setReviews).catch(() => {})
+                setTimeout(() => setMounted(true), 60)
+            })
             .catch(() => router.push('/products'))
             .finally(() => setLoading(false))
         productApi.related(slug).then(setRelated).catch(() => {})
     }, [slug, router])
 
-    /* crossfade image switch */
+    /* instant switch — all images already in DOM, no loading delay */
     const switchImage = (i: number) => {
-        if (i === imgIdx || imgFading) return
-        setPrevIdx(imgIdx)
-        setImgFading(true)
-        setTimeout(() => {
-            setImgIdx(i)
-            setPrevIdx(null)
-            setImgFading(false)
-        }, 350)
+        if (i === imgIdx) return
+        setImgIdx(i)
     }
 
     const onTouchStart = (e: React.TouchEvent) => {
@@ -109,6 +115,25 @@ export default function ProductDetailPage() {
         setTimeout(() => { setAdding(false); setAdded(false) }, 1800)
     }
 
+    const handleReviewSubmit = async () => {
+        if (reviewRating === 0) { toast.error('Veuillez sélectionner une note'); return }
+        if (!product) return
+        setSubmitting(true)
+        try {
+            const r = await reviewApi.create(product.id, { rating: reviewRating, comment: reviewComment })
+            setReviews(prev => [r, ...prev])
+            setReviewRating(0)
+            setReviewComment('')
+            toast.success('Votre avis a été publié !')
+        } catch (err: any) {
+            const msg = err?.response?.data?.message || err?.response?.data?.rating?.[0] || "Erreur lors de l'envoi"
+            toast.error(msg)
+        }
+        setSubmitting(false)
+    }
+
+    const hasReviewed = isAuthenticated() && reviews.some(r => r.userId === user?.id)
+
     /* ── Loading skeleton ── */
     if (loading) return (
         <div className="container-xl pt-24 pb-40">
@@ -154,39 +179,34 @@ export default function ProductDetailPage() {
                     {/* ── Images ────────────────────────────── */}
                     <div className="lg:col-span-7 space-y-4 -mx-6 lg:mx-0" style={col(80)}>
 
-                        {/* Main image with crossfade + touch swipe */}
+                        {/* Main image viewer — all images in DOM, instant CSS transition */}
                         <div
                             className="relative aspect-[4/5] bg-surface-100 dark:bg-[#1a1a1a] lg:border border-black/[0.04] dark:border-white/[0.06] overflow-hidden"
                             onTouchStart={onTouchStart}
                             onTouchEnd={onTouchEnd}
                         >
-                            {/* Previous image fading out */}
-                            {prevIdx !== null && publicImageUrl(product.images?.[prevIdx]) && (
-                                <Image
-                                    src={publicImageUrl(product.images[prevIdx])!}
-                                    alt={product.name}
-                                    fill unoptimized
-                                    className="object-cover absolute inset-0"
-                                    style={{ opacity: imgFading ? 0 : 1, transition: 'opacity .35s ease' }}
-                                    sizes="(max-width: 1024px) 100vw, 58vw"
-                                />
-                            )}
-
-                            {/* Current image */}
-                            {publicImageUrl(product.images?.[imgIdx]) ? (
-                                <Image
-                                    src={publicImageUrl(product.images[imgIdx])!}
-                                    alt={product.name}
-                                    fill unoptimized
-                                    className="object-cover"
-                                    style={{
-                                        opacity: imgFading ? 0 : 1,
-                                        transform: imgFading ? 'scale(1.03)' : 'scale(1)',
-                                        transition: 'opacity .35s ease, transform .5s ease',
-                                    }}
-                                    sizes="(max-width: 1024px) 100vw, 58vw"
-                                    priority
-                                />
+                            {product.images?.length > 0 ? (
+                                product.images.map((img: string, i: number) => {
+                                    const src = publicImageUrl(img)
+                                    if (!src) return null
+                                    return (
+                                        <Image
+                                            key={i}
+                                            src={src}
+                                            alt={product.name}
+                                            fill
+                                            className="object-cover absolute inset-0"
+                                            style={{
+                                                opacity: i === imgIdx ? 1 : 0,
+                                                transition: 'opacity .28s ease',
+                                                zIndex: i === imgIdx ? 1 : 0,
+                                            }}
+                                            sizes="(max-width: 1024px) 100vw, 58vw"
+                                            priority={i === 0}
+                                            loading={i === 0 ? 'eager' : 'lazy'}
+                                        />
+                                    )
+                                })
                             ) : (
                                 <div className="w-full h-full flex items-center justify-center">
                                     <Package className="w-12 h-12 text-black/10" strokeWidth={1} />
@@ -238,7 +258,7 @@ export default function ProductDetailPage() {
                                         <Image
                                             src={publicImageUrl(img)!}
                                             alt={`${product.name} ${i + 1}`}
-                                            fill unoptimized
+                                            fill
                                             className="object-cover"
                                             sizes="100px"
                                             loading="lazy"
@@ -278,6 +298,24 @@ export default function ProductDetailPage() {
                                     </span>
                                 )}
                             </div>
+                            {product.averageRating && (
+                                <div className="flex items-center gap-2 pt-1">
+                                    <div className="flex gap-0.5">
+                                        {[1, 2, 3, 4, 5].map(i => (
+                                            <Star
+                                                key={i}
+                                                className="w-3 h-3"
+                                                fill={i <= Math.round(product.averageRating) ? 'currentColor' : 'none'}
+                                                strokeWidth={1.5}
+                                                style={{ color: i <= Math.round(product.averageRating) ? '#f59e0b' : 'currentColor', opacity: i <= Math.round(product.averageRating) ? 1 : 0.2 }}
+                                            />
+                                        ))}
+                                    </div>
+                                    <span className="text-[10px] text-black/40 dark:text-white/40">
+                                        {product.averageRating} · {product.reviewsCount} avis
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Description */}
@@ -429,6 +467,112 @@ export default function ProductDetailPage() {
                     </div>
                 </section>
             )}
+
+            {/* ── Reviews ──────────────────────────────────── */}
+            <section className="mt-32 border-t border-black/[0.05] dark:border-white/[0.06] pt-20">
+                <div className="container-xl">
+                    <div className="flex items-end justify-between mb-14">
+                        <div>
+                            <p className="text-[9px] uppercase tracking-[0.35em] text-black/25 dark:text-white/30 mb-2">Avis clients</p>
+                            <h2 className="text-2xl md:text-3xl font-serif tracking-tight text-black dark:text-white">
+                                {reviews.length > 0 ? `${reviews.length} avis` : 'Soyez le premier à donner votre avis'}
+                            </h2>
+                        </div>
+                    </div>
+
+                    {/* ── Review list ── */}
+                    {reviews.length > 0 && (
+                        <div className="space-y-6 mb-16">
+                            {reviews.map((r: any) => (
+                                <div key={r.id} className="border-b border-black/[0.04] dark:border-white/[0.06] pb-6">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <div className="w-9 h-9 bg-black/5 dark:bg-white/10 rounded-full flex items-center justify-center">
+                                            <UserIcon className="w-4 h-4 text-black/30 dark:text-white/30" strokeWidth={1.5} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[11px] font-bold text-black dark:text-white">{r.userName}</p>
+                                            <p className="text-[8px] text-black/30 dark:text-white/30 uppercase tracking-widest">
+                                                {new Date(r.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-0.5 mb-2">
+                                        {[1, 2, 3, 4, 5].map(i => (
+                                            <Star
+                                                key={i}
+                                                className="w-3.5 h-3.5"
+                                                fill={i <= r.rating ? '#f59e0b' : 'none'}
+                                                strokeWidth={1.5}
+                                                style={{ color: i <= r.rating ? '#f59e0b' : 'currentColor', opacity: i <= r.rating ? 1 : 0.15 }}
+                                            />
+                                        ))}
+                                    </div>
+                                    {r.comment && (
+                                        <p className="text-[11px] leading-relaxed text-black/50 dark:text-white/50 max-w-lg">{r.comment}</p>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* ── Review form ── */}
+                    {isAuthenticated() ? (
+                        hasReviewed ? (
+                            <div className="bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/[0.06] p-8 text-center">
+                                <p className="text-[11px] text-black/50 dark:text-white/50">Vous avez déjà donné votre avis sur ce produit.</p>
+                            </div>
+                        ) : (
+                            <div className="max-w-lg space-y-6">
+                                <p className="text-[10px] uppercase tracking-[0.3em] font-bold text-black/40 dark:text-white/40">Donnez votre avis</p>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map(i => (
+                                        <button
+                                            key={i}
+                                            type="button"
+                                            onClick={() => setReviewRating(i)}
+                                            onMouseEnter={() => setHoverRating(i)}
+                                            onMouseLeave={() => setHoverRating(0)}
+                                            className="transition-transform hover:scale-110"
+                                        >
+                                            <Star
+                                                className="w-6 h-6"
+                                                fill={i <= (hoverRating || reviewRating) ? '#f59e0b' : 'none'}
+                                                strokeWidth={1.5}
+                                                style={{ color: i <= (hoverRating || reviewRating) ? '#f59e0b' : 'currentColor', opacity: i <= (hoverRating || reviewRating) ? 1 : 0.2 }}
+                                            />
+                                        </button>
+                                    ))}
+                                    {reviewRating > 0 && (
+                                        <span className="text-[10px] text-black/40 dark:text-white/40 ml-2 self-center">
+                                            {['', 'Médiocre', 'Passable', 'Bien', 'Très bien', 'Excellent'][reviewRating]}
+                                        </span>
+                                    )}
+                                </div>
+                                <textarea
+                                    value={reviewComment}
+                                    onChange={e => setReviewComment(e.target.value)}
+                                    placeholder="Partagez votre expérience avec ce produit (optionnel)…"
+                                    rows={3}
+                                    className="w-full bg-transparent border border-black/10 dark:border-white/10 px-4 py-3 text-[11px] text-black dark:text-white placeholder:text-black/20 dark:placeholder:text-white/20 focus:outline-none focus:border-black/30 dark:focus:border-white/30 transition-colors resize-none"
+                                />
+                                <button
+                                    onClick={handleReviewSubmit}
+                                    disabled={submitting || reviewRating === 0}
+                                    className="px-8 py-3 bg-black text-white text-[9px] uppercase tracking-[0.3em] font-bold hover:bg-zinc-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    {submitting ? 'Envoi…' : 'Publier mon avis'}
+                                </button>
+                            </div>
+                        )
+                    ) : (
+                        <div className="bg-black/[0.02] dark:bg-white/[0.03] border border-black/[0.05] dark:border-white/[0.06] p-8 text-center">
+                            <p className="text-[11px] text-black/50 dark:text-white/50">
+                                <Link href="/login" className="underline hover:text-black dark:hover:text-white">Connectez-vous</Link> pour laisser un avis.
+                            </p>
+                        </div>
+                    )}
+                </div>
+            </section>
 
             <style>{`
                 @keyframes qtyPop {

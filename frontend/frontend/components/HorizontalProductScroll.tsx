@@ -76,7 +76,7 @@ function ScrollCard({ product, index, dragActive, isMobile }: {
 
                     {img1 ? <>
                         {/* Primary */}
-                        <Image src={img1} alt={product.name} fill unoptimized className="object-cover"
+                        <Image src={img1} alt={product.name} fill className="object-cover"
                             style={{
                                 opacity:   hovered && img2 ? 0 : outOfStock ? .45 : 1,
                                 transform: hovered ? 'scale(1.07)' : 'scale(1)',
@@ -87,7 +87,7 @@ function ScrollCard({ product, index, dragActive, isMobile }: {
 
                         {/* Secondary */}
                         {img2 && (
-                            <Image src={img2} alt="" fill unoptimized className="object-cover absolute inset-0"
+                            <Image src={img2} alt="" fill className="object-cover absolute inset-0"
                                 style={{
                                     opacity:   hovered ? 1 : 0,
                                     transform: hovered ? 'scale(1.03)' : 'scale(1.09)',

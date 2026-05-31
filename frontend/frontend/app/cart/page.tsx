@@ -1,4 +1,5 @@
 'use client'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCartStore } from '@/store/cart'
@@ -6,9 +7,15 @@ import { PageBanner } from '@/components/PageBanner'
 import { Plus, Minus, ShoppingBag, ArrowRight, Package } from 'lucide-react'
 import { formatEuro } from '@/lib/formatPrice'
 import { publicImageUrl } from '@/lib/mediaUrl'
+import { shippingApi } from '@/lib/api'
 
 export default function CartPage() {
     const { items, updateQty, removeItem, subtotal } = useCartStore()
+    const [shipping, setShipping] = useState<{ shippingPrice: number; freeShippingThreshold: number | null }>({ shippingPrice: 0, freeShippingThreshold: null })
+
+    useEffect(() => {
+        shippingApi.get().then(setShipping).catch(() => {})
+    }, [])
 
     if (items.length === 0) return (
         <div className="min-h-screen">
@@ -26,6 +33,13 @@ export default function CartPage() {
 
     const sub = subtotal()
     const totalItems = items.reduce((s, i) => s + i.quantity, 0)
+
+    const shippingCost = (shipping.shippingPrice === 0 || (shipping.freeShippingThreshold !== null && sub >= shipping.freeShippingThreshold))
+        ? 0
+        : shipping.shippingPrice
+    const isFree = shippingCost === 0
+    const isFreeByThreshold = shipping.shippingPrice > 0 && shipping.freeShippingThreshold !== null && sub >= shipping.freeShippingThreshold
+    const total = sub + shippingCost
 
     return (
         <div className="min-h-screen">
@@ -95,8 +109,19 @@ export default function CartPage() {
                                 </div>
                                 <div className="flex justify-between text-[9px] uppercase tracking-widest text-black/30 dark:text-white/35">
                                     <span>Livraison</span>
-                                    <span className="font-bold text-green-500">Gratuite</span>
+                                    {isFree ? (
+                                        <span className="font-bold text-green-500">
+                                            {isFreeByThreshold ? 'Offerte' : 'Gratuite'}
+                                        </span>
+                                    ) : (
+                                        <span className="font-bold text-black dark:text-white">{shippingCost.toFixed(2)} DH</span>
+                                    )}
                                 </div>
+                                {!isFree && shipping.freeShippingThreshold !== null && (
+                                    <p className="text-[8px] uppercase tracking-widest text-brand-500/60">
+                                        Gratuite dès {shipping.freeShippingThreshold} DH
+                                    </p>
+                                )}
                                 <div className="flex justify-between text-[9px] uppercase tracking-widest text-black/30 dark:text-white/35">
                                     <span>Paiement</span>
                                     <span className="font-bold text-black/50 dark:text-white/50">À la livraison</span>
@@ -105,7 +130,7 @@ export default function CartPage() {
 
                             <div className="border-t border-black/[0.05] dark:border-white/[0.06] pt-6 flex justify-between items-baseline">
                                 <span className="text-[9px] uppercase tracking-widest font-bold text-black/40 dark:text-white/40">Total</span>
-                                <span className="font-serif text-2xl font-black text-black dark:text-white">{formatEuro(sub)}</span>
+                                <span className="font-serif text-2xl font-black text-black dark:text-white">{formatEuro(total)}</span>
                             </div>
 
                             <div className="space-y-3 pt-2">

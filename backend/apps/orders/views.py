@@ -345,6 +345,15 @@ def guest_checkout(request):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+        from apps.admin_panel.models import ShippingSettings
+        ship = ShippingSettings.get()
+        if ship.shipping_price == 0:
+            shipping_cost = Decimal('0')
+        elif ship.free_shipping_threshold is not None and subtotal >= ship.free_shipping_threshold:
+            shipping_cost = Decimal('0')
+        else:
+            shipping_cost = Decimal(str(ship.shipping_price))
+
         order = Order.objects.create(
             user=None,
             guest_name=data['guestName'],
@@ -353,9 +362,9 @@ def guest_checkout(request):
             guest_city=data['guestCity'],
             shipping_method='STANDARD',
             subtotal=subtotal,
-            shipping_cost=Decimal('0'),
+            shipping_cost=shipping_cost,
             discount_amount=Decimal('0'),
-            total=subtotal,
+            total=subtotal + shipping_cost,
             notes=data.get('notes', ''),
         )
 

@@ -1,19 +1,49 @@
 'use client'
-import { useEffect, useState } from 'react'
-import { Truck, CreditCard } from 'lucide-react'
+import { useEffect, useState, ComponentType } from 'react'
+import { Truck, CreditCard, Tag, Gift, Phone, Star, Megaphone } from 'lucide-react'
 import { usePathname } from 'next/navigation'
+import { advertisementApi } from '@/lib/api'
 
-const messages = [
-    { icon: Truck,      text: 'Livraison gratuite partout au Maroc' },
-    { icon: CreditCard, text: 'Paiement à la livraison' },
+const ICON_MAP: Record<string, ComponentType<any>> = {
+    truck:       Truck,
+    credit_card: CreditCard,
+    tag:         Tag,
+    gift:        Gift,
+    phone:       Phone,
+    star:        Star,
+    none:        Megaphone,
+}
+
+const DEFAULT_MESSAGES = [
+    { icon: 'truck',       text: 'Livraison gratuite partout au Maroc' },
+    { icon: 'credit_card', text: 'Paiement à la livraison' },
 ]
+
+interface AdMessage {
+    icon: string
+    text: string
+}
 
 export function AnnouncementBar() {
     const pathname = usePathname()
-    const [current, setCurrent] = useState(0)
-    const [visible, setVisible] = useState(true)
+    const [messages,  setMessages]  = useState<AdMessage[]>(DEFAULT_MESSAGES)
+    const [current,   setCurrent]   = useState(0)
+    const [visible,   setVisible]   = useState(true)
 
+    // Fetch ads from API, fall back to defaults
     useEffect(() => {
+        advertisementApi.list()
+            .then((data: any[]) => {
+                if (Array.isArray(data) && data.length > 0) {
+                    setMessages(data.map(d => ({ icon: d.icon || 'none', text: d.text })))
+                }
+            })
+            .catch(() => { /* keep defaults */ })
+    }, [])
+
+    // Rotate messages
+    useEffect(() => {
+        if (messages.length <= 1) return
         const interval = setInterval(() => {
             setVisible(false)
             setTimeout(() => {
@@ -22,12 +52,12 @@ export function AnnouncementBar() {
             }, 350)
         }, 3800)
         return () => clearInterval(interval)
-    }, [])
+    }, [messages.length])
 
     if (pathname.startsWith('/admin')) return null
 
-    const msg = messages[current]
-    const Icon = msg.icon
+    const msg  = messages[current] ?? DEFAULT_MESSAGES[0]
+    const Icon = ICON_MAP[msg.icon] ?? Megaphone
 
     return (
         <div className="fixed top-0 left-0 right-0 bg-black z-[60]" style={{ height: '40px' }}>
@@ -38,12 +68,14 @@ export function AnnouncementBar() {
             </div>
 
             {/* Dot indicators */}
-            <div className="absolute left-1/2 -translate-x-1/2 bottom-1 flex gap-1 z-10 pointer-events-none">
-                {messages.map((_, i) => (
-                    <div key={i} style={{ transition: 'all 0.5s ease' }}
-                        className={`rounded-full ${i === current ? 'w-4 h-[3px] bg-white' : 'w-[3px] h-[3px] bg-white/25'}`} />
-                ))}
-            </div>
+            {messages.length > 1 && (
+                <div className="absolute left-1/2 -translate-x-1/2 bottom-1 flex gap-1 z-10 pointer-events-none">
+                    {messages.map((_, i) => (
+                        <div key={i} style={{ transition: 'all 0.5s ease' }}
+                            className={`rounded-full ${i === current ? 'w-4 h-[3px] bg-white' : 'w-[3px] h-[3px] bg-white/25'}`} />
+                    ))}
+                </div>
+            )}
 
             {/* Content */}
             <div className="absolute inset-0 flex items-center justify-center gap-2 px-4 pb-1"

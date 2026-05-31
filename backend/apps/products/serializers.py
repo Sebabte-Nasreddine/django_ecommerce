@@ -2,7 +2,7 @@
 Serializers for the products app.
 """
 from rest_framework import serializers
-from .models import Category, Size, Product, ProductSize
+from .models import Category, Size, Product, ProductSize, Review
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -55,6 +55,8 @@ class ProductSerializer(serializers.ModelSerializer):
         required=False,
         default=list,
     )
+    averageRating = serializers.SerializerMethodField()
+    reviewsCount = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
@@ -64,9 +66,18 @@ class ProductSerializer(serializers.ModelSerializer):
             'images', 'featured', 'is_active',
             'categoryId', 'categoryName',
             'sizes', 'sizeIds',
+            'averageRating', 'reviewsCount',
             'created_at',
         ]
         read_only_fields = ['id', 'slug', 'created_at']
+
+    def get_averageRating(self, obj):
+        from django.db.models import Avg
+        result = obj.reviews.filter(is_active=True).aggregate(avg=Avg('rating'))
+        return round(float(result['avg']), 1) if result['avg'] else None
+
+    def get_reviewsCount(self, obj):
+        return obj.reviews.filter(is_active=True).count()
 
     def create(self, validated_data):
         size_ids = validated_data.pop('sizeIds', [])
@@ -123,3 +134,29 @@ class ProductStockUpdateSerializer(serializers.Serializer):
         ps.stock_quantity = self.validated_data['stockQuantity']
         ps.save()
         return ps
+
+
+class ReviewSerializer(serializers.ModelSerializer):
+    productId = serializers.PrimaryKeyRelatedField(
+        source='product',
+        queryset=Product.objects.all(),
+        write_only=True,
+        required=False,
+    )
+    productName = serializers.CharField(source='product.name', read_only=True)
+    userName = serializers.SerializerMethodField()
+    userId = serializers.IntegerField(source='user_id', read_only=True)
+    createdAt = serializers.DateTimeField(source='created_at', read_only=True)
+
+    class Meta:
+        model = Review
+        fields = ['id', 'productId', 'productName', 'rating', 'comment', 'userName', 'userId', 'is_active', 'createdAt']
+        read_only_fields = ['id', 'is_active', 'createdAt']
+
+    def get_userName(self, obj):
+        return f'{obj.user.first_name} {obj.user.last_name}'.strip() or obj.user.email
+
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError('La note doit être comprise entre 1 et 5.')
+        return value

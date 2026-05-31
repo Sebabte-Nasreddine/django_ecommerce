@@ -1,9 +1,11 @@
 'use client'
 import { useEffect, useState, Suspense } from 'react'
+import Image from 'next/image'
 import { categoryApi, productApi } from '@/lib/api'
 import { ProductCard } from '@/components/ProductCard'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
+import { publicImageUrl } from '@/lib/mediaUrl'
 
 function CategorieContent() {
     const searchParams = useSearchParams()
@@ -15,21 +17,22 @@ function CategorieContent() {
     const [products, setProducts] = useState<any[]>([])
     const [loadingCats, setLoadingCats] = useState(true)
     const [loadingProds, setLoadingProds] = useState(false)
+    const initialCategoryId = categoryId
 
-    // Load categories once
+    // Load categories once on mount only — never re-fetch on URL change
     useEffect(() => {
         categoryApi.list()
             .then((data: any) => {
                 const cats = Array.isArray(data) ? data : []
                 setCategories(cats)
-                if (categoryId) {
-                    const found = cats.find((c: any) => c.id === parseInt(categoryId))
+                if (initialCategoryId) {
+                    const found = cats.find((c: any) => c.id === parseInt(initialCategoryId))
                     if (found) setSelectedCategory(found)
                 }
             })
             .catch(() => {})
             .finally(() => setLoadingCats(false))
-    }, [categoryId])
+    }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Load products when category selected
     useEffect(() => {
@@ -142,10 +145,13 @@ function CategorieContent() {
                                 className="group relative aspect-[4/5] overflow-hidden bg-surface-100 text-left"
                             >
                                 {cat.image ? (
-                                    <img
-                                        src={cat.image}
+                                    <Image
+                                        src={publicImageUrl(cat.image) || cat.image}
                                         alt={cat.name}
-                                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                        fill
+                                        loading="lazy"
+                                        className="object-cover transition-transform duration-700 group-hover:scale-105"
+                                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                                     />
                                 ) : (
                                     <div className="absolute inset-0 bg-gradient-to-br from-surface to-surface-100 transition-transform duration-700 group-hover:scale-105" />

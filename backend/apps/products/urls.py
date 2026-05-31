@@ -13,4 +13,6 @@ urlpatterns = [
     path('/<int:pk>/sizes', views.product_sizes, name='product-sizes'),
     path('/<int:pk>/sizes/stock', views.product_size_stock, name='product-size-stock'),
     path('/<int:pk>/sizes/<int:size_id>/stock', views.product_size_stock_by_id, name='product-size-stock-by-id'),
+    path('/<int:pk>/reviews', views.product_reviews, name='product-reviews'),
+    path('/<int:pk>/reviews/<int:review_id>', views.review_detail, name='review-detail'),
 ]

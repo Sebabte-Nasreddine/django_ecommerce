@@ -6,7 +6,7 @@ import { PageBanner } from '@/components/PageBanner'
 import { MapPin, Truck, CheckCircle } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatEuro } from '@/lib/formatPrice'
-import { api, productApi } from '@/lib/api'
+import { api, shippingApi } from '@/lib/api'
 
 const inputClass = "w-full bg-transparent border-0 border-b border-black/10 dark:border-white/10 focus:border-brand-500 dark:focus:border-brand-500 focus:ring-0 text-sm py-3 transition-colors placeholder:text-black/15 dark:placeholder:text-white/20 outline-none text-black dark:text-white"
 const labelClass = "text-[9px] uppercase tracking-[0.25em] text-black/40 dark:text-white/40"
@@ -18,6 +18,7 @@ export default function CheckoutPage() {
     const [submitting, setSubmitting] = useState(false)
     const [form, setForm] = useState({ fullName: '', phone: '', address: '', city: '' })
     const [errors, setErrors] = useState<Record<string, string>>({})
+    const [shipping, setShipping] = useState<{ shippingPrice: number; freeShippingThreshold: number | null }>({ shippingPrice: 0, freeShippingThreshold: null })
 
     useEffect(() => {
         if (items.length === 0) { router.push('/cart'); return }
@@ -25,6 +26,7 @@ export default function CheckoutPage() {
             const saved = JSON.parse(localStorage.getItem(GUEST_KEY) || '{}')
             if (saved.fullName) setForm(f => ({ ...f, fullName: saved.fullName || '', phone: saved.phone || '', address: saved.address || '', city: saved.city || '' }))
         } catch {}
+        shippingApi.get().then(setShipping).catch(() => {})
     }, [])
 
     const setField = (k: string, v: string) => {
@@ -85,6 +87,11 @@ export default function CheckoutPage() {
 
     const sub = subtotal()
     const totalItems = items.reduce((s, i) => s + i.quantity, 0)
+    const shippingCost = (shipping.shippingPrice === 0 || (shipping.freeShippingThreshold !== null && sub >= shipping.freeShippingThreshold))
+        ? 0
+        : shipping.shippingPrice
+    const isFreeByThreshold = shipping.shippingPrice > 0 && shipping.freeShippingThreshold !== null && sub >= shipping.freeShippingThreshold
+    const total = sub + shippingCost
 
     return (
         <div className="min-h-screen">
@@ -125,12 +132,24 @@ export default function CheckoutPage() {
                                 <Truck className="w-3.5 h-3.5" strokeWidth={1.5} /> Livraison & Paiement
                             </h2>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div className="flex flex-col gap-3 p-6 border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30">
+                                <div className={`flex flex-col gap-3 p-6 border ${shippingCost === 0 ? 'border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/30' : 'border-black/10 dark:border-white/10 bg-surface dark:bg-[#1a1a1a]'}`}>
                                     <div className="flex justify-between items-center">
-                                        <span className="text-[9px] uppercase tracking-[0.25em] font-bold text-green-700 dark:text-green-400">Livraison gratuite</span>
-                                        <span className="text-[9px] font-bold text-green-700 dark:text-green-400">0,00 DH</span>
+                                        <span className={`text-[9px] uppercase tracking-[0.25em] font-bold ${shippingCost === 0 ? 'text-green-700 dark:text-green-400' : 'text-black/60 dark:text-white/60'}`}>
+                                            {shippingCost === 0 ? 'Livraison gratuite' : 'Livraison standard'}
+                                        </span>
+                                        <span className={`text-[9px] font-bold ${shippingCost === 0 ? 'text-green-700 dark:text-green-400' : 'text-black dark:text-white'}`}>
+                                            {shippingCost === 0 ? 'Gratuit' : `${shippingCost.toFixed(2)} DH`}
+                                        </span>
                                     </div>
-                                    <p className="text-[9px] uppercase tracking-widest text-green-600/70 dark:text-green-500/70">Partout au Maroc</p>
+                                    <p className="text-[9px] uppercase tracking-widest text-black/30 dark:text-white/30">
+                                        {isFreeByThreshold
+                                            ? 'Offerte · Commande éligible'
+                                            : shippingCost === 0
+                                                ? 'Partout au Maroc'
+                                                : shipping.freeShippingThreshold
+                                                    ? `Gratuite dès ${shipping.freeShippingThreshold.toFixed(0)} DH`
+                                                    : 'Partout au Maroc'}
+                                    </p>
                                 </div>
                                 <div className="flex flex-col gap-3 p-6 border border-brand-500 bg-brand-500/5">
                                     <div className="flex justify-between items-center">
@@ -166,14 +185,17 @@ export default function CheckoutPage() {
                                     <span>Sous-total</span><span className="text-brand-500">{formatEuro(sub)}</span>
                                 </div>
                                 <div className="flex justify-between text-[9px] uppercase tracking-widest text-black/30 dark:text-white/30">
-                                    <span>Livraison</span><span className="text-green-500 font-bold">Gratuite</span>
+                                    <span>Livraison</span>
+                                    <span className={shippingCost === 0 ? 'text-green-500 font-bold' : 'text-black dark:text-white font-bold'}>
+                                        {shippingCost === 0 ? 'Gratuite' : `${shippingCost.toFixed(2)} DH`}
+                                    </span>
                                 </div>
                                 <div className="flex justify-between text-[9px] uppercase tracking-widest text-black/30 dark:text-white/30">
                                     <span>Paiement</span><span className="text-brand-500 font-bold">À la livraison</span>
                                 </div>
                                 <div className="flex justify-between items-baseline pt-4 border-t border-black/[0.05] dark:border-white/[0.05]">
                                     <span className="text-[9px] uppercase tracking-widest font-bold text-black/40 dark:text-white/40">Total</span>
-                                    <span className="font-serif text-2xl font-black text-brand-500">{formatEuro(sub)}</span>
+                                    <span className="font-serif text-2xl font-black text-brand-500">{formatEuro(total)}</span>
                                 </div>
                             </div>
                             <button type="submit" disabled={submitting}

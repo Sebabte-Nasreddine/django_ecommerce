@@ -21,6 +21,7 @@ from rest_framework.decorators import api_view, parser_classes, permission_class
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 
+from apps.admin_panel.models import Advertisement, BannerImage, ShippingSettings
 from apps.orders.models import Order, Promotion
 from apps.orders.serializers import OrderSerializer, PromotionSerializer
 from apps.products.models import Category
@@ -28,13 +29,14 @@ from apps.products.serializers import CategorySerializer
 from apps.users.models import User
 from apps.users.serializers import UserListSerializer
 from core.permissions import IsAdmin
+from rest_framework.permissions import AllowAny
 
 logger = logging.getLogger(__name__)
 
 ALLOWED_IMAGE_TYPES = {'image/jpeg', 'image/png', 'image/webp', 'image/gif'}
 MAX_IMAGE_SIZE = 20 * 1024 * 1024  # 20 MB — compressed to WebP before saving
-MAX_DIMENSION = 2000                # px — longest side capped for web
-WEBP_QUALITY = 85                  # good balance quality/size
+MAX_DIMENSION = 1000                # px — ample for web, keeps files small
+WEBP_QUALITY = 80                  # good quality, smaller output
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────
@@ -175,6 +177,55 @@ def promotion_detail(request, pk):
 
 # ── Image Upload / Download ───────────────────────────────────────────────────
 
+# ── Advertisements ────────────────────────────────────────────────────────────
+
+class AdvertisementSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model = Advertisement
+        fields = ['id', 'text', 'icon', 'is_active', 'order', 'created_at']
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_advertisements(request):
+    """Public: returns only active advertisements ordered by display order."""
+    qs = Advertisement.objects.filter(is_active=True).order_by('order', 'created_at')
+    return Response(AdvertisementSerializer(qs, many=True).data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdmin])
+def admin_advertisements(request):
+    if request.method == 'GET':
+        qs = Advertisement.objects.all().order_by('order', 'created_at')
+        return Response(AdvertisementSerializer(qs, many=True).data)
+
+    serializer = AdvertisementSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    ad = serializer.save()
+    return Response(AdvertisementSerializer(ad).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['PUT', 'DELETE'])
+@permission_classes([IsAdmin])
+def admin_advertisement_detail(request, pk):
+    try:
+        ad = Advertisement.objects.get(pk=pk)
+    except Advertisement.DoesNotExist:
+        return Response({'message': 'Publicité introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'PUT':
+        serializer = AdvertisementSerializer(ad, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(AdvertisementSerializer(ad).data)
+
+    ad.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ── Image Upload / Download ───────────────────────────────────────────────────
+
 @extend_schema(
     operation_id='admin_upload_image',
     request=inline_serializer('ImageUpload', fields={'file': drf_serializers.ImageField()}),
@@ -233,7 +284,7 @@ def upload_image(request):
     upload_dir.mkdir(parents=True, exist_ok=True)
     dest = upload_dir / filename
 
-    img.save(dest, format='WEBP', quality=WEBP_QUALITY, method=4)
+    img.save(dest, format='WEBP', quality=WEBP_QUALITY, method=0)
     logger.info('Image saved: %s (original %.1f KB → %.1f KB webp)', filename, len(raw) / 1024, dest.stat().st_size / 1024)
 
     url = f'/uploads/{filename}'
@@ -262,3 +313,67 @@ def download_image(request, filename):
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+# ── Shipping Settings ────────────────────────────────────────────────────────
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_shipping_settings(request):
+    """GET /api/shipping-settings — returns current shipping config (public)."""
+    s = ShippingSettings.get()
+    return Response({
+        'shippingPrice': float(s.shipping_price),
+        'freeShippingThreshold': float(s.free_shipping_threshold) if s.free_shipping_threshold is not None else None,
+    })
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAdmin])
+def admin_shipping_settings(request):
+    """GET/PUT /api/admin/shipping-settings — read or update shipping config."""
+    s = ShippingSettings.get()
+    if request.method == 'GET':
+        return Response({
+            'shippingPrice': float(s.shipping_price),
+            'freeShippingThreshold': float(s.free_shipping_threshold) if s.free_shipping_threshold is not None else None,
+        })
+    # PUT
+    price = request.data.get('shippingPrice', 0)
+    threshold = request.data.get('freeShippingThreshold', None)
+    try:
+        s.shipping_price = float(price)
+        s.free_shipping_threshold = float(threshold) if threshold not in (None, '', 0, '0') else None
+        s.save()
+    except (ValueError, TypeError):
+        return Response({'message': 'Valeurs invalides.'}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({
+        'shippingPrice': float(s.shipping_price),
+        'freeShippingThreshold': float(s.free_shipping_threshold) if s.free_shipping_threshold is not None else None,
+    })
+
+
+# ── Banner Image ──────────────────────────────────────────────────────────────
+
+def _banner_response(b):
+    return Response({'desktopImage': b.desktop_image, 'mobileImage': b.mobile_image})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_banner(request):
+    """GET /api/banner — public banner images."""
+    return _banner_response(BannerImage.get())
+
+
+@api_view(['GET', 'PUT'])
+@permission_classes([IsAdmin])
+def admin_banner(request):
+    """GET/PUT /api/admin/banner — read or update banner images."""
+    b = BannerImage.get()
+    if request.method == 'GET':
+        return _banner_response(b)
+    b.desktop_image = request.data.get('desktopImage', b.desktop_image)
+    b.mobile_image  = request.data.get('mobileImage', b.mobile_image)
+    b.save()
+    return _banner_response(b)

@@ -1,8 +1,9 @@
 """
-Product catalog models: Category, Size, Product, ProductSize.
+Product catalog models: Category, Size, Product, ProductSize, Review.
 """
 from django.db import models
 from django.utils.text import slugify
+from django.conf import settings
 
 
 class Category(models.Model):
@@ -104,3 +105,23 @@ class ProductSize(models.Model):
 
     def __str__(self):
         return f'{self.product.name} – {self.size.name} ({self.stock_quantity})'
+
+
+class Review(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='reviews')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='reviews')
+    rating = models.PositiveSmallIntegerField()
+    comment = models.TextField(blank=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'reviews'
+        unique_together = ['product', 'user']
+        ordering = ['-created_at']
+        verbose_name = 'Review'
+        verbose_name_plural = 'Reviews'
+
+    def __str__(self):
+        return f'{self.user.first_name}: {self.rating}/5 - {self.product.name}'

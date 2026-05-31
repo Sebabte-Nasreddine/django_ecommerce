@@ -10,6 +10,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.static import serve
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
+from apps.admin_panel import views as admin_panel_views
 
 urlpatterns = [
     # Django admin
@@ -28,6 +29,9 @@ urlpatterns = [
         path('orders', include('apps.orders.urls')),
         path('users/', include('apps.users.profile_urls')),
         path('admin/', include('apps.admin_panel.urls')),
+        path('advertisements', admin_panel_views.public_advertisements, name='public-advertisements'),
+        path('shipping-settings', admin_panel_views.public_shipping_settings, name='public-shipping-settings'),
+        path('banner', admin_panel_views.public_banner, name='public-banner'),
     ])),
 
     # API documentation

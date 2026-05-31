@@ -147,6 +147,36 @@ export const orderApi = {
     adminDelete: (id: number) => api.delete(`/orders/${id}/delete`),
 }
 
+// ── Advertisements (public) ───────────────────────────────────────────────────
+export const advertisementApi = {
+    list: () => api.get('/advertisements').then(r => r.data),
+}
+
+// ── Shipping (public + admin) ─────────────────────────────────────────────────
+export const shippingApi = {
+    get: () => api.get('/shipping-settings').then(r => r.data),
+    update: (data: { shippingPrice: number; freeShippingThreshold: number | null }) =>
+        api.put('/admin/shipping-settings', data).then(r => r.data),
+}
+
+// ── Banner image (public + admin) ─────────────────────────────────────────────
+export const bannerApi = {
+    get: () => api.get('/banner').then(r => r.data),
+    update: (data: { desktopImage: string; mobileImage: string }) =>
+        api.put('/admin/banner', data).then(r => r.data),
+}
+
+// ── Reviews ──────────────────────────────────────────────────────────────────
+export const reviewApi = {
+    list: (productId: number) => api.get(`/products/${productId}/reviews`).then(r => r.data),
+    create: (productId: number, data: { rating: number; comment?: string }) =>
+        api.post(`/products/${productId}/reviews`, data).then(r => r.data),
+    update: (productId: number, reviewId: number, data: { rating?: number; comment?: string }) =>
+        api.put(`/products/${productId}/reviews/${reviewId}`, data).then(r => r.data),
+    delete: (productId: number, reviewId: number) =>
+        api.delete(`/products/${productId}/reviews/${reviewId}`),
+}
+
 // ── Admin ──────────────────────────────────────────────────────────────────────
 export const adminApi = {
     stats: () => api.get('/admin/stats').then(r => r.data),
@@ -165,4 +195,15 @@ export const adminApi = {
     createPromo: (data: unknown) => api.post('/admin/promotions', data).then(r => r.data),
     updatePromo: (id: number, data: unknown) => api.put(`/admin/promotions/${id}`, data).then(r => r.data),
     deletePromo: (id: number) => api.delete(`/admin/promotions/${id}`),
+
+    // Advertisements
+    advertisements: () => api.get('/admin/advertisements').then(r => r.data),
+    createAd: (data: unknown) => api.post('/admin/advertisements', data).then(r => r.data),
+    updateAd: (id: number, data: unknown) => api.put(`/admin/advertisements/${id}`, data).then(r => r.data),
+    deleteAd: (id: number) => api.delete(`/admin/advertisements/${id}`),
+
+    // Reviews
+    reviews: () => api.get('/admin/reviews').then(r => r.data),
+    toggleReview: (id: number, is_active: boolean) =>
+        api.patch(`/admin/reviews/${id}/toggle`, { is_active }).then(r => r.data),
 }

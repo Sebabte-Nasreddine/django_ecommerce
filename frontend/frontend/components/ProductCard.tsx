@@ -79,7 +79,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
                 <div className="relative aspect-[3/4] bg-surface-100 dark:bg-[#1a1a1a] overflow-hidden">
 
                     {imgSrc ? (
-                        <Image src={imgSrc} alt={product.name} fill unoptimized className="object-cover"
+                        <Image src={imgSrc} alt={product.name} fill className="object-cover"
                             style={{
                                 opacity:   hovered && imgSrc2 ? 0 : outOfStock ? 0.45 : 1,
                                 transform: hovered ? 'scale(1.08)' : 'scale(1)',
@@ -93,7 +93,7 @@ export function ProductCard({ product, index = 0 }: { product: Product; index?: 
                     )}
 
                     {imgSrc2 && (
-                        <Image src={imgSrc2} alt={product.name} fill unoptimized className="object-cover absolute inset-0"
+                        <Image src={imgSrc2} alt={product.name} fill className="object-cover absolute inset-0"
                             style={{
                                 opacity:   hovered ? 1 : 0,
                                 transform: hovered ? 'scale(1.04)' : 'scale(1.1)',
