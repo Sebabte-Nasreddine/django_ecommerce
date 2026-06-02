@@ -123,7 +123,7 @@ services:
     container_name: sefa_nginx
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8080:8130"
       # - "443:443"   # uncomment when SSL is configured
     volumes:
       - ./nginx/nginx.conf.local:/etc/nginx/nginx.conf:ro
